@@ -100,6 +100,7 @@ type Filesystem struct {
 	Provider  int             `json:"provider"`
 	S3Config  vfs.S3FsConfig  `json:"s3config,omitempty"`
 	GCSConfig vfs.GCSFsConfig `json:"gcsconfig,omitempty"`
+	OSSConfig vfs.OSSFsConfig `json:"ossconfig,omitempty"`
 }
 
 // User defines an SFTP user
@@ -161,6 +162,8 @@ func (u *User) GetFilesystem(connectionID string) (vfs.Fs, error) {
 		config := u.FsConfig.GCSConfig
 		config.CredentialFile = u.getGCSCredentialsFilePath()
 		return vfs.NewGCSFs(connectionID, u.GetHomeDir(), config)
+	} else if u.FsConfig.Provider == 3 {
+		return vfs.NewOSSFs(connectionID, u.GetHomeDir(), u.FsConfig.OSSConfig)
 	}
 	return vfs.NewOsFs(connectionID, u.GetHomeDir(), u.VirtualFolders), nil
 }
@@ -526,6 +529,8 @@ func (u *User) GetInfoString() string {
 		result += "Storage: S3 "
 	} else if u.FsConfig.Provider == 2 {
 		result += "Storage: GCS "
+	} else if u.FsConfig.Provider == 3 {
+		result += "Storage: OSS "
 	}
 	if len(u.PublicKeys) > 0 {
 		result += fmt.Sprintf("Public keys: %v ", len(u.PublicKeys))
@@ -620,6 +625,14 @@ func (u *User) getACopy() User {
 			AutomaticCredentials: u.FsConfig.GCSConfig.AutomaticCredentials,
 			StorageClass:         u.FsConfig.GCSConfig.StorageClass,
 			KeyPrefix:            u.FsConfig.GCSConfig.KeyPrefix,
+		},
+		OSSConfig: vfs.OSSFsConfig{
+			Bucket:         u.FsConfig.OSSConfig.Bucket,
+			AccessKey:      u.FsConfig.OSSConfig.AccessKey,
+			AccessSecret:   u.FsConfig.OSSConfig.AccessSecret,
+			Endpoint:       u.FsConfig.OSSConfig.Endpoint,
+			KeyPrefix:      u.FsConfig.OSSConfig.KeyPrefix,
+			UploadPartSize: u.FsConfig.OSSConfig.UploadPartSize,
 		},
 	}
 

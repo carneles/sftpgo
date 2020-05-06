@@ -140,6 +140,32 @@ func ValidateGCSFsConfig(config *GCSFsConfig, credentialsFilePath string) error 
 	return nil
 }
 
+// ValidateOSSFsConfig returns nil if the specified s3 config is valid, otherwise an error
+func ValidateOSSFsConfig(config *OSSFsConfig) error {
+	if len(config.Bucket) == 0 {
+		return errors.New("bucket cannot be empty")
+	}
+	if len(config.AccessKey) == 0 && len(config.AccessSecret) > 0 {
+		return errors.New("access_key cannot be empty with access_secret not empty")
+	}
+	if len(config.AccessSecret) == 0 && len(config.AccessKey) > 0 {
+		return errors.New("access_secret cannot be empty with access_key not empty")
+	}
+	if len(config.KeyPrefix) > 0 {
+		if strings.HasPrefix(config.KeyPrefix, "/") {
+			return errors.New("key_prefix cannot start with /")
+		}
+		config.KeyPrefix = path.Clean(config.KeyPrefix)
+		if !strings.HasSuffix(config.KeyPrefix, "/") {
+			config.KeyPrefix += "/"
+		}
+	}
+	if config.UploadPartSize != 0 && config.UploadPartSize < 5 {
+		return errors.New("upload_part_size cannot be != 0 and lower than 5 (MB)")
+	}
+	return nil
+}
+
 // SetPathPermissions calls fs.Chown.
 // It does nothing for local filesystem on windows
 func SetPathPermissions(fs Fs, path string, uid int, gid int) {

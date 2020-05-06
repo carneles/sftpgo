@@ -829,10 +829,27 @@ func validateFilesystemConfig(user *User) error {
 			return &ValidationError{err: fmt.Sprintf("could not validate GCS config: %v", err)}
 		}
 		return nil
+	} else if user.FsConfig.Provider == 3 {
+		err := vfs.ValidateOSSFsConfig(&user.FsConfig.OSSConfig)
+		if err != nil {
+			return &ValidationError{err: fmt.Sprintf("could not validate ossconfig: %v", err)}
+		}
+		if len(user.FsConfig.OSSConfig.AccessSecret) > 0 {
+			vals := strings.Split(user.FsConfig.OSSConfig.AccessSecret, "$")
+			if !strings.HasPrefix(user.FsConfig.OSSConfig.AccessSecret, "$aes$") || len(vals) != 4 {
+				accessSecret, err := utils.EncryptData(user.FsConfig.OSSConfig.AccessSecret)
+				if err != nil {
+					return &ValidationError{err: fmt.Sprintf("could not encrypt oss access secret: %v", err)}
+				}
+				user.FsConfig.OSSConfig.AccessSecret = accessSecret
+			}
+		}
+		return nil
 	}
 	user.FsConfig.Provider = 0
 	user.FsConfig.S3Config = vfs.S3FsConfig{}
 	user.FsConfig.GCSConfig = vfs.GCSFsConfig{}
+	user.FsConfig.OSSConfig = vfs.OSSFsConfig{}
 	return nil
 }
 
@@ -1037,6 +1054,8 @@ func HideUserSensitiveData(user *User) User {
 		user.FsConfig.S3Config.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.S3Config.AccessSecret)
 	} else if user.FsConfig.Provider == 2 {
 		user.FsConfig.GCSConfig.Credentials = ""
+	} else if user.FsConfig.Provider == 3 {
+		user.FsConfig.OSSConfig.AccessSecret = utils.RemoveDecryptionKey(user.FsConfig.OSSConfig.AccessSecret)
 	}
 	return *user
 }

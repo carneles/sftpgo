@@ -239,6 +239,8 @@ func (s *Service) getPortableDirToServe() string {
 		dirToServe = s.PortableUser.FsConfig.S3Config.KeyPrefix
 	} else if s.PortableUser.FsConfig.Provider == 2 {
 		dirToServe = s.PortableUser.FsConfig.GCSConfig.KeyPrefix
+	} else if s.PortableUser.FsConfig.Provider == 3 {
+		dirToServe = s.PortableUser.FsConfig.OSSConfig.KeyPrefix
 	} else {
 		dirToServe = s.PortableUser.HomeDir
 	}

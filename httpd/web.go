@@ -372,6 +372,16 @@ func getFsConfigFromUserPostFields(r *http.Request) (dataprovider.Filesystem, er
 		}
 		fs.GCSConfig.Credentials = base64.StdEncoding.EncodeToString(fileBytes)
 		fs.GCSConfig.AutomaticCredentials = 0
+	} else if fs.Provider == 3 {
+		fs.OSSConfig.Bucket = r.Form.Get("oss_bucket")
+		fs.OSSConfig.AccessKey = r.Form.Get("oss_access_key")
+		fs.OSSConfig.AccessSecret = r.Form.Get("oss_access_secret")
+		fs.OSSConfig.Endpoint = r.Form.Get("oss_endpoint")
+		fs.OSSConfig.KeyPrefix = r.Form.Get("oss_key_prefix")
+		fs.OSSConfig.UploadPartSize, err = strconv.ParseInt(r.Form.Get("oss_upload_part_size"), 10, 64)
+		if err != nil {
+			return fs, err
+		}
 	}
 	return fs, nil
 }

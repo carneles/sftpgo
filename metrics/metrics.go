@@ -217,6 +217,54 @@ var (
 		Help: "The total number of HTTP requests served with 5xx status code",
 	})
 
+	// totalOSSListObjects is the metric that reports the total successful OSS list objects requests
+	totalOSSListObjects = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_list_objects",
+		Help: "The total number of successful OSS list objects requests",
+	})
+
+	// totalOSSListObjectsError is the metric that reports the total OSS list objects errors
+	totalOSSListObjectsErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_list_objects_errors",
+		Help: "The total number of OSS list objects errors",
+	})
+
+	// totalS3CopyObject is the metric that reports the total successful OSS copy object requests
+	totalOSSCopyObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_copy_object",
+		Help: "The total number of successful OSS copy object requests",
+	})
+
+	// totalOSSCopyObjectErrors is the metric that reports the total OSS copy object errors
+	totalOSSCopyObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_copy_object_errors",
+		Help: "The total number of OSS copy object errors",
+	})
+
+	// totalOSSDeleteObject is the metric that reports the total successful OSS delete object requests
+	totalOSSDeleteObject = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_delete_object",
+		Help: "The total number of successful OSS delete object requests",
+	})
+
+	// totalOSSDeleteObjectErrors is the metric that reports the total OSS delete object errors
+	totalOSSDeleteObjectErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_delete_object_errors",
+		Help: "The total number of OSS delete object errors",
+	})
+
+	// totalOSSHeadBucket is the metric that reports the total successful OSS head bucket requests
+	totalOSSHeadBucket = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_head_bucket",
+		Help: "The total number of successful OSS head bucket requests",
+	})
+
+	// totalOSSHeadBucketErrors is the metric that reports the total OSS head bucket errors
+	totalOSSHeadBucketErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_head_bucket_errors",
+		Help: "The total number of OSS head bucket errors",
+	})
+
 	// totalS3Uploads is the metric that reports the total number of successful S3 uploads
 	totalS3Uploads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_s3_uploads_total",
@@ -404,6 +452,42 @@ func TransferCompleted(bytesSent, bytesReceived int64, transferKind int, err err
 			totalDownloadErrors.Inc()
 		}
 		totalDownloadSize.Add(float64(bytesSent))
+	}
+}
+
+// OSSListObjectsCompleted updates metrics after an OSS list objects request terminates
+func OSSListObjectsCompleted(err error) {
+	if err == nil {
+		totalOSSListObjects.Inc()
+	} else {
+		totalOSSListObjectsErrors.Inc()
+	}
+}
+
+// OSSCopyObjectCompleted updates metrics after an S3 copy object request terminates
+func OSSCopyObjectCompleted(err error) {
+	if err == nil {
+		totalOSSCopyObject.Inc()
+	} else {
+		totalOSSCopyObjectErrors.Inc()
+	}
+}
+
+// OSSDeleteObjectCompleted updates metrics after an OSS delete object request terminates
+func OSSDeleteObjectCompleted(err error) {
+	if err == nil {
+		totalOSSDeleteObject.Inc()
+	} else {
+		totalOSSDeleteObjectErrors.Inc()
+	}
+}
+
+// OSSHeadBucketCompleted updates metrics after an OSS head bucket request terminates
+func OSSHeadBucketCompleted(err error) {
+	if err == nil {
+		totalOSSHeadBucket.Inc()
+	} else {
+		totalOSSHeadBucketErrors.Inc()
 	}
 }
 

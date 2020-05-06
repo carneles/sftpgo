@@ -45,6 +45,12 @@ var (
 	portableGCSAutoCredentials   int
 	portableGCSStorageClass      string
 	portableGCSKeyPrefix         string
+	portableOSSBucket            string
+	portableOSSAccessKey         string
+	portableOSSAccessSecret      string
+	portableOSSEndpoint          string
+	portableOSSKeyPrefix         string
+	portableOSSULPartSize        int
 	portableCmd                  = &cobra.Command{
 		Use:   "portable",
 		Short: "Serve a single directory",
@@ -122,6 +128,14 @@ Please take a look at the usage below to customize the serving parameters`,
 							StorageClass:         portableGCSStorageClass,
 							KeyPrefix:            portableGCSKeyPrefix,
 						},
+						OSSConfig: vfs.OSSFsConfig{
+							Bucket:         portableOSSBucket,
+							AccessKey:      portableOSSAccessKey,
+							AccessSecret:   portableOSSAccessSecret,
+							Endpoint:       portableOSSEndpoint,
+							KeyPrefix:      portableOSSKeyPrefix,
+							UploadPartSize: int64(portableOSSULPartSize),
+						},
 					},
 					Filters: dataprovider.UserFilters{
 						FileExtensions: parseFileExtensionsFilters(),
@@ -176,6 +190,13 @@ func init() {
 	portableCmd.Flags().StringVar(&portableGCSCredentialsFile, "gcs-credentials-file", "", "Google Cloud Storage JSON credentials file")
 	portableCmd.Flags().IntVar(&portableGCSAutoCredentials, "gcs-automatic-credentials", 1, "0 means explicit credentials using a JSON "+
 		"credentials file, 1 automatic")
+	portableCmd.Flags().StringVar(&portableOSSBucket, "oss-bucket", "", "")
+	portableCmd.Flags().StringVar(&portableOSSAccessKey, "oss-access-key", "", "")
+	portableCmd.Flags().StringVar(&portableOSSAccessSecret, "oss-access-secret", "", "")
+	portableCmd.Flags().StringVar(&portableOSSEndpoint, "oss-endpoint", "", "")
+	portableCmd.Flags().StringVar(&portableOSSKeyPrefix, "oss-key-prefix", "", "Allows to restrict access to the virtual folder "+
+		"identified by this prefix and its contents")
+	portableCmd.Flags().IntVar(&portableOSSULPartSize, "oss-upload-part-size", 5, "The buffer size for multipart uploads (MB)")
 	rootCmd.AddCommand(portableCmd)
 }
 

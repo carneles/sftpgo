@@ -49,12 +49,23 @@ type GCSFsConfig struct {
 	StorageClass         string `json:"storage_class,omitempty"`
 }
 
+// OSSFsConfig defines the configuration for OSS based filesystem
+type OSSFsConfig struct {
+	Bucket         string `json:"bucket,omitempty"`
+	KeyPrefix      string `json:"key_prefix,omitempty"`
+	AccessKey      string `json:"access_key,omitempty"`
+	AccessSecret   string `json:"access_secret,omitempty"`
+	Endpoint       string `json:"endpoint,omitempty"`
+	UploadPartSize int64  `json:"upload_part_size,omitempty"`
+}
+
 // SFTPGoFilesystem defines cloud storage filesystem details
 type SFTPGoFilesystem struct {
-	// 0 local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage
+	// 0 local filesystem, 1 Amazon S3 compatible, 2 Google Cloud Storage, 3 Aliyun OSS
 	Provider  int         `json:"provider"`
 	S3Config  S3FsConfig  `json:"s3config,omitempty"`
 	GCSConfig GCSFsConfig `json:"gcsconfig,omitempty"`
+	OSSConfig OSSFsConfig `json:"ossconfig,omitempty"`
 }
 
 type virtualFolder struct {
