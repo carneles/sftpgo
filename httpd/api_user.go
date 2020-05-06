@@ -108,6 +108,10 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 	if user.FsConfig.Provider == 1 {
 		currentS3AccessSecret = user.FsConfig.S3Config.AccessSecret
 	}
+	currentOSSAccessSecret := ""
+	if user.FsConfig.Provider == 3 {
+		currentOSSAccessSecret = user.FsConfig.OSSConfig.AccessSecret
+	}
 	user.Permissions = make(map[string][]string)
 	user.Filters.FileExtensions = []dataprovider.ExtensionsFilter{}
 	if _, ok := err.(*dataprovider.RecordNotFoundError); ok {
@@ -135,6 +139,12 @@ func updateUser(w http.ResponseWriter, r *http.Request) {
 		if utils.RemoveDecryptionKey(currentS3AccessSecret) == user.FsConfig.S3Config.AccessSecret ||
 			(len(user.FsConfig.S3Config.AccessSecret) == 0 && len(user.FsConfig.S3Config.AccessKey) > 0) {
 			user.FsConfig.S3Config.AccessSecret = currentS3AccessSecret
+		}
+	}
+	if user.FsConfig.Provider == 3 {
+		if utils.RemoveDecryptionKey(currentOSSAccessSecret) == user.FsConfig.OSSConfig.AccessSecret ||
+			(len(user.FsConfig.OSSConfig.AccessSecret) == 0 && len(user.FsConfig.OSSConfig.AccessKey) > 0) {
+			user.FsConfig.OSSConfig.AccessSecret = currentOSSAccessSecret
 		}
 	}
 	if user.ID != userID {

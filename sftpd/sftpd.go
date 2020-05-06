@@ -151,6 +151,8 @@ func newActionNotification(user dataprovider.User, operation, filePath, target, 
 		endpoint = user.FsConfig.S3Config.Endpoint
 	} else if user.FsConfig.Provider == 2 {
 		bucket = user.FsConfig.GCSConfig.Bucket
+	} else if user.FsConfig.Provider == 3 {
+		bucket = user.FsConfig.OSSConfig.Bucket
 	}
 	if err != nil {
 		status = 0

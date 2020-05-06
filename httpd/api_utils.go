@@ -452,6 +452,9 @@ func compareUserFsConfig(expected *dataprovider.User, actual *dataprovider.User)
 	if err := compareGCSConfig(expected, actual); err != nil {
 		return err
 	}
+	if err := compareOSSConfig(expected, actual); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -504,6 +507,29 @@ func compareGCSConfig(expected *dataprovider.User, actual *dataprovider.User) er
 	return nil
 }
 
+func compareOSSConfig(expected *dataprovider.User, actual *dataprovider.User) error {
+	if expected.FsConfig.OSSConfig.Bucket != actual.FsConfig.OSSConfig.Bucket {
+		return errors.New("OSS bucket mismatch")
+	}
+	if expected.FsConfig.OSSConfig.AccessKey != actual.FsConfig.OSSConfig.AccessKey {
+		return errors.New("OSS access key mismatch")
+	}
+	if err := checkOSSAccessSecret(expected.FsConfig.OSSConfig.AccessSecret, actual.FsConfig.OSSConfig.AccessSecret); err != nil {
+		return err
+	}
+	if expected.FsConfig.OSSConfig.Endpoint != actual.FsConfig.OSSConfig.Endpoint {
+		return errors.New("OSS endpoint mismatch")
+	}
+	if expected.FsConfig.OSSConfig.UploadPartSize != actual.FsConfig.OSSConfig.UploadPartSize {
+		return errors.New("OSS upload part size mismatch")
+	}
+	if expected.FsConfig.OSSConfig.KeyPrefix != actual.FsConfig.OSSConfig.KeyPrefix &&
+		expected.FsConfig.OSSConfig.KeyPrefix+"/" != actual.FsConfig.OSSConfig.KeyPrefix {
+		return errors.New("OSS key prefix mismatch")
+	}
+	return nil
+}
+
 func checkS3AccessSecret(expectedAccessSecret, actualAccessSecret string) error {
 	if len(expectedAccessSecret) > 0 {
 		vals := strings.Split(expectedAccessSecret, "$")
@@ -527,6 +553,34 @@ func checkS3AccessSecret(expectedAccessSecret, actualAccessSecret string) error 
 	} else {
 		if expectedAccessSecret != actualAccessSecret {
 			return errors.New("S3 access secret mismatch")
+		}
+	}
+	return nil
+}
+
+func checkOSSAccessSecret(expectedAccessSecret, actualAccessSecret string) error {
+	if len(expectedAccessSecret) > 0 {
+		vals := strings.Split(expectedAccessSecret, "$")
+		if strings.HasPrefix(expectedAccessSecret, "$aes$") && len(vals) == 4 {
+			expectedAccessSecret = utils.RemoveDecryptionKey(expectedAccessSecret)
+			if expectedAccessSecret != actualAccessSecret {
+				return fmt.Errorf("OSS access secret mismatch, expected: %v", expectedAccessSecret)
+			}
+		} else {
+			// here we check that actualAccessSecret is aes encrypted without the nonce
+			parts := strings.Split(actualAccessSecret, "$")
+			if !strings.HasPrefix(actualAccessSecret, "$aes$") || len(parts) != 3 {
+				return errors.New("Invalid OSS access secret")
+			}
+			if len(parts) == len(vals) {
+				if expectedAccessSecret != actualAccessSecret {
+					return errors.New("OSS encrypted access secret mismatch")
+				}
+			}
+		}
+	} else {
+		if expectedAccessSecret != actualAccessSecret {
+			return errors.New("OSS access secret mismatch")
 		}
 	}
 	return nil

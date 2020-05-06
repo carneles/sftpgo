@@ -6,7 +6,9 @@ require (
 	cloud.google.com/go v0.56.0 // indirect
 	cloud.google.com/go/storage v1.6.0
 	github.com/alexedwards/argon2id v0.0.0-20190612080829-01a59b2b8802
+	github.com/aliyun/aliyun-oss-go-sdk v2.1.0+incompatible
 	github.com/aws/aws-sdk-go v1.30.3
+	github.com/drakkan/pipeat v0.0.0-20190316224601-fb1f3a9aa29f // indirect
 	github.com/eikenb/pipeat v0.0.0-20190316224601-fb1f3a9aa29f
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/go-chi/chi v4.1.1+incompatible
