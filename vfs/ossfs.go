@@ -3,6 +3,7 @@ package vfs
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path"
 	"strings"
@@ -12,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3/s3manager"
 	"github.com/drakkan/sftpgo/logger"
 	"github.com/drakkan/sftpgo/metrics"
+	"github.com/drakkan/sftpgo/utils"
 	"github.com/eikenb/pipeat"
 )
 
@@ -44,23 +46,19 @@ type OSSFsConfig struct {
 
 // OSSFs is a Fs implementation for Amazon S3 compatible object storage.
 type OSSFs struct {
-	connectionID   string
-	localTempDir   string
-	config         OSSFsConfig
-	svc            *oss.Client
-	ctxTimeout     time.Duration
-	ctxLongTimeout time.Duration
+	connectionID string
+	localTempDir string
+	config       OSSFsConfig
+	svc          *oss.Client
 }
 
 // NewOSSFs returns an OSSFs object that allows to interact with an oss compatible
 // object storage
 func NewOSSFs(connectionID, localTempDir string, config OSSFsConfig) (Fs, error) {
 	fs := OSSFs{
-		connectionID:   connectionID,
-		localTempDir:   localTempDir,
-		config:         config,
-		ctxTimeout:     30 * time.Second,
-		ctxLongTimeout: 300 * time.Second,
+		connectionID: connectionID,
+		localTempDir: localTempDir,
+		config:       config,
 	}
 	if err := ValidateOSSFsConfig(&fs.config); err != nil {
 		return fs, err
@@ -73,7 +71,11 @@ func NewOSSFs(connectionID, localTempDir string, config OSSFsConfig) (Fs, error)
 	}
 
 	var err error
-	fs.svc, err = oss.New(config.Endpoint, config.AccessKey, config.AccessSecret)
+	accessSecret, err := utils.DecryptData(fs.config.AccessSecret)
+	if err != nil {
+		return fs, err
+	}
+	fs.svc, err = oss.New(fs.config.Endpoint, fs.config.AccessKey, accessSecret)
 	return fs, err
 }
 
@@ -114,12 +116,13 @@ func (fs OSSFs) Stat(name string) (os.FileInfo, error) {
 		return result, err
 	}
 	page, err := bucket.ListObjects(oss.Prefix(prefix), oss.Delimiter("/"))
-	if err == nil && len(result.Name()) == 0 {
-		err = errors.New("404 no such file or directory")
+	if err != nil {
+		err = errors.New("404 no such file or directoryx")
 	}
 	for _, p := range page.CommonPrefixes {
 		if fs.isEqual(&p, name) {
 			result = NewFileInfo(name, true, 0, time.Time{})
+			break
 		}
 	}
 	for _, fileObject := range page.Objects {
@@ -128,12 +131,13 @@ func (fs OSSFs) Stat(name string) (os.FileInfo, error) {
 			objectModTime := fileObject.LastModified
 			isDir := strings.HasSuffix(fileObject.Key, "/")
 			result = NewFileInfo(name, isDir, objectSize, objectModTime)
+			break
 		}
 	}
 
 	metrics.OSSListObjectsCompleted(err)
 	if len(result.Name()) == 0 {
-		err = errors.New("404 no such file or directory")
+		err = errors.New("404 no such file or directoryy")
 	}
 	return result, err
 }
@@ -145,39 +149,39 @@ func (fs OSSFs) Lstat(name string) (os.FileInfo, error) {
 
 // Open opens the named file for reading
 func (fs OSSFs) Open(name string) (*os.File, *pipeat.PipeReaderAt, func(), error) {
-	/*r, w, err := pipeat.AsyncWriterPipeInDir(fs.localTempDir)
-	if err != nil {
-		return nil, nil, nil, err
-	}*/
-
 	bucket, err := fs.svc.Bucket(fs.config.Bucket)
 	if err != nil {
 		return nil, nil, nil, err
 	}
+
+	r, w, err := pipeat.AsyncWriterPipeInDir(fs.localTempDir)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	key := name
+	if key == "/" || key == "." {
+		key = ""
+	} else {
+		key = strings.TrimPrefix(key, "/")
+	}
+	//err := bucket.GetObjectToFile(key, fs.localTempDir, options...)
+	objectReader, err := bucket.GetObject(key)
+	if err != nil {
+		r.Close()
+		w.Close()
+		return nil, nil, nil, err
+	}
+
 	go func() {
-		key := name
-		err = bucket.DownloadFile(key, name, 100*1024, oss.Checkpoint(true, name+".checkpoint"), oss.CheckpointDir(true, fs.localTempDir))
-		if err != nil {
-			return
-		}
-		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, 0, err)
-		metrics.S3TransferCompleted(0, 1, err)
+		defer objectReader.Close()
+		n, err := io.Copy(w, objectReader)
+		w.CloseWithError(err) //nolint:errcheck // the returned error is always null
+		fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
+		metrics.OSSTransferCompleted(n, 1, err)
 	}()
-	/*
-		downloader := s3manager.NewDownloaderWithClient(fs.svc)
-		go func() {
-			defer cancelFn()
-			key := name
-			n, err := downloader.DownloadWithContext(ctx, w, &s3.GetObjectInput{
-				Bucket: aws.String(fs.config.Bucket),
-				Key:    aws.String(key),
-			})
-			w.CloseWithError(err) //nolint:errcheck // the returned error is always null
-			fsLog(fs, logger.LevelDebug, "download completed, path: %#v size: %v, err: %v", name, n, err)
-			metrics.S3TransferCompleted(n, 1, err)
-		}()*/
-	return nil, nil, nil, nil
-	//return nil, r, cancelFn, nil
+
+	return nil, r, nil, nil
 }
 
 // Create creates or opens the named file for writing
@@ -187,32 +191,32 @@ func (fs OSSFs) Create(name string, flag int) (*os.File, *pipeat.PipeWriterAt, f
 		return nil, nil, nil, err
 	}
 
-	/*r, w, err := pipeat.PipeInDir(fs.localTempDir)
+	r, w, err := pipeat.PipeInDir(fs.localTempDir)
 	if err != nil {
 		return nil, nil, nil, err
-	}*/
-	go func() {
-		key := name
-		chunks, err := oss.SplitFileByPartSize(key, fs.config.UploadPartSize)
-		if err != nil {
-			return
-		}
-		imur, err := bucket.InitiateMultipartUpload(key)
-		if err != nil {
-			return
-		}
-		for _, chunk := range chunks {
-			_, err := bucket.UploadPartFromFile(imur, fs.localTempDir+name, chunk.Offset, chunk.Size, chunk.Number)
-			if err != nil {
-				break
-			}
-		}
+	}
 
+	options := []oss.Option{
+		oss.ObjectACL(oss.ACLPrivate),
+	}
+
+	go func() {
+		//key := strings.TrimPrefix(name, "/")
+		key := name
+		if key == "/" || key == "." {
+			key = ""
+		} else {
+			key = strings.TrimPrefix(key, "/")
+		}
+		err = bucket.PutObject(key, r, options...)
+		if err != nil {
+			r.CloseWithError(err)
+		}
 		fsLog(fs, logger.LevelDebug, "upload completed, path: %#v, response: %v, readed bytes: %v, err: %+v",
-			name, "response", 0, err)
-		metrics.S3TransferCompleted(0, 0, err)
+			name, nil, r.GetReadedBytes(), err)
+		metrics.OSSTransferCompleted(r.GetReadedBytes(), 0, err)
 	}()
-	return nil, nil, nil, nil
+	return nil, w, nil, nil
 }
 
 // Rename renames (moves) source to target.
@@ -233,7 +237,13 @@ func (fs OSSFs) Rename(source, target string) error {
 	if err != nil {
 		return err
 	}
-	copySource := fs.Join(fs.config.Bucket, source)
+	//copySource := fs.Join(fs.config.Bucket, source)
+	copySource := source
+	if copySource == "/" || copySource == "." {
+		copySource = ""
+	} else {
+		copySource = strings.TrimPrefix(copySource, "/")
+	}
 	if fi.IsDir() {
 		contents, err := fs.ReadDir(source)
 		if err != nil {
@@ -275,11 +285,17 @@ func (fs OSSFs) Remove(name string, isDir bool) error {
 			name += "/"
 		}
 	}
+	key := name
+	if key == "/" || key == "." {
+		key = ""
+	} else {
+		key = strings.TrimPrefix(key, "/")
+	}
 	bucket, err := fs.svc.Bucket(fs.config.Bucket)
 	if err != nil {
 		return err
 	}
-	err = bucket.DeleteObject(name)
+	err = bucket.DeleteObject(key)
 	metrics.OSSDeleteObjectCompleted(err)
 	return err
 }
@@ -379,7 +395,8 @@ func (OSSFs) IsNotExist(err error) bool {
 	if err == nil {
 		return false
 	}
-	return strings.Contains(err.Error(), "404")
+	return true
+	//return strings.Contains(err.Error(), "404")
 }
 
 // IsPermission returns a boolean indicating whether the error is known to

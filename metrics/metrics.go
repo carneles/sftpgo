@@ -265,6 +265,42 @@ var (
 		Help: "The total number of OSS head bucket errors",
 	})
 
+	// totalOSSUploads is the metric that reports the total number of successful S3 uploads
+	totalOSSUploads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_uploads_total",
+		Help: "The total number of successful OSS uploads",
+	})
+
+	// totalOSSDownloads is the metric that reports the total number of successful S3 downloads
+	totalOSSDownloads = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_downloads_total",
+		Help: "The total number of successful OSS downloads",
+	})
+
+	// totalOSSUploadErrors is the metric that reports the total number of S3 upload errors
+	totalOSSUploadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_upload_errors_total",
+		Help: "The total number of OSS upload errors",
+	})
+
+	// totalS3DownloadErrors is the metric that reports the total number of S3 download errors
+	totalOSSDownloadErrors = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_download_errors_total",
+		Help: "The total number of OSS download errors",
+	})
+
+	// totalOSSUploadSize is the metric that reports the total OSS uploads size as bytes
+	totalOSSUploadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_upload_size",
+		Help: "The total OSS upload size as bytes, partial uploads are included",
+	})
+
+	// totalOSSDownloadSize is the metric that reports the total OSS downloads size as bytes
+	totalOSSDownloadSize = promauto.NewCounter(prometheus.CounterOpts{
+		Name: "sftpgo_oss_download_size",
+		Help: "The total OSS download size as bytes, partial downloads are included",
+	})
+
 	// totalS3Uploads is the metric that reports the total number of successful S3 uploads
 	totalS3Uploads = promauto.NewCounter(prometheus.CounterOpts{
 		Name: "sftpgo_s3_uploads_total",
@@ -488,6 +524,27 @@ func OSSHeadBucketCompleted(err error) {
 		totalOSSHeadBucket.Inc()
 	} else {
 		totalOSSHeadBucketErrors.Inc()
+	}
+}
+
+// OSSTransferCompleted updates metrics after an OSS upload or a download
+func OSSTransferCompleted(bytes int64, transferKind int, err error) {
+	if transferKind == 0 {
+		// upload
+		if err == nil {
+			totalOSSUploads.Inc()
+		} else {
+			totalOSSUploadErrors.Inc()
+		}
+		totalS3UploadSize.Add(float64(bytes))
+	} else {
+		// download
+		if err == nil {
+			totalOSSDownloads.Inc()
+		} else {
+			totalOSSDownloadErrors.Inc()
+		}
+		totalOSSDownloadSize.Add(float64(bytes))
 	}
 }
 
